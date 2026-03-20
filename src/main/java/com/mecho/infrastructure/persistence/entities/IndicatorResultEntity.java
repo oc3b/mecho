@@ -31,7 +31,7 @@ public class IndicatorResultEntity {
     @Column(nullable = false)
     private Instant timestamp;
 
-    @Column(precision = 18, scale = 8)
+    @Column(name = "indicator_value", precision = 18, scale = 8)
     private BigDecimal value;
 
     @Enumerated(EnumType.STRING)

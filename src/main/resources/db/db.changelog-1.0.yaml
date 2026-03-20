@@ -1,0 +1,202 @@
+databaseChangeLog:
+  - changeSet:
+      id: 2024-03-19-001
+      author: mecho
+      changes:
+        - createTable tableName: symbol:
+            column:
+              - name: id
+                type: BIGINT
+                autoIncrement: true
+                constraints:
+                  primaryKey: true
+                  nullable: false
+              - name: ticker
+                type: VARCHAR(20)
+                constraints:
+                  nullable: false
+                  unique: true
+              - name: name
+                type: VARCHAR(255)
+              - name: asset_class
+                type: VARCHAR(20)
+              - name: exchange
+                type: VARCHAR(50)
+              - name: enabled
+                type: BOOLEAN
+                defaultValueBoolean: true
+              - name: created_at
+                type: TIMESTAMP
+                defaultValueComputed: CURRENT_TIMESTAMP
+                constraints:
+                  nullable: false
+              - name: updated_at
+                type: TIMESTAMP
+  - changeSet:
+      id: 2024-03-19-002
+      author: mecho
+      changes:
+        - createTable tableName: market_data:
+            column:
+              - name: id
+                type: BIGINT
+                autoIncrement: true
+                constraints:
+                  primaryKey: true
+                  nullable: false
+              - name: symbol_id
+                type: BIGINT
+                constraints:
+                  nullable: false
+                  foreignKeyName: fk_market_data_symbol
+                  references: symbol(id)
+              - name: timestamp
+                type: TIMESTAMP
+                constraints:
+                  nullable: false
+              - name: open_price
+                type: DECIMAL(18, 8)
+              - name: high_price
+                type: DECIMAL(18, 8)
+              - name: low_price
+                type: DECIMAL(18, 8)
+              - name: close_price
+                type: DECIMAL(18, 8)
+              - name: volume
+                type: DECIMAL(20, 8)
+              - name: data_source
+                type: VARCHAR(50)
+                constraints:
+                  nullable: false
+              - name: created_at
+                type: TIMESTAMP
+                defaultValueComputed: CURRENT_TIMESTAMP
+                constraints:
+                  nullable: false
+        - createIndex tableName: market_data indexName: idx_market_data_symbol_timestamp:
+            column:
+              - name: symbol_id
+              - name: timestamp
+  - changeSet:
+      id: 2024-03-19-003
+      author: mecho
+      changes:
+        - createTable tableName: indicator_result:
+            column:
+              - name: id
+                type: BIGINT
+                autoIncrement: true
+                constraints:
+                  primaryKey: true
+                  nullable: false
+              - name: symbol_id
+                type: BIGINT
+                constraints:
+                  nullable: false
+                  foreignKeyName: fk_indicator_symbol
+                  references: symbol(id)
+              - name: indicator_code
+                type: VARCHAR(50)
+                constraints:
+                  nullable: false
+              - name: timestamp
+                type: TIMESTAMP
+                constraints:
+                  nullable: false
+              - name: value
+                type: DECIMAL(18, 8)
+              - name: signal
+                type: VARCHAR(20)
+              - name: created_at
+                type: TIMESTAMP
+                defaultValueComputed: CURRENT_TIMESTAMP
+                constraints:
+                  nullable: false
+        - createIndex tableName: indicator_result indexName: idx_indicator_symbol_time:
+            column:
+              - name: symbol_id
+              - name: indicator_code
+              - name: timestamp
+  - changeSet:
+      id: 2024-03-19-004
+      author: mecho
+      changes:
+        - createTable tableName: prediction:
+            column:
+              - name: id
+                type: BIGINT
+                autoIncrement: true
+                constraints:
+                  primaryKey: true
+                  nullable: false
+              - name: symbol_id
+                type: BIGINT
+                constraints:
+                  nullable: false
+                  foreignKeyName: fk_prediction_symbol
+                  references: symbol(id)
+              - name: timestamp
+                type: TIMESTAMP
+                constraints:
+                  nullable: false
+              - name: predicted_direction
+                type: VARCHAR(10)
+                constraints:
+                  nullable: false
+              - name: probability
+                type: DECIMAL(5, 4)
+                constraints:
+                  nullable: false
+              - name: confidence
+                type: DECIMAL(5, 4)
+              - name: model_version
+                type: VARCHAR(50)
+              - name: created_at
+                type: TIMESTAMP
+                defaultValueComputed: CURRENT_TIMESTAMP
+                constraints:
+                  nullable: false
+        - createIndex tableName: prediction indexName: idx_prediction_symbol_time:
+            column:
+              - name: symbol_id
+              - name: timestamp
+  - changeSet:
+      id: 2024-03-19-005
+      author: mecho
+      changes:
+        - createTable tableName: alert:
+            column:
+              - name: id
+                type: BIGINT
+                autoIncrement: true
+                constraints:
+                  primaryKey: true
+                  nullable: false
+              - name: prediction_id
+                type: BIGINT
+                constraints:
+                  nullable: false
+                  foreignKeyName: fk_alert_prediction
+                  references: prediction(id)
+              - name: sent_at
+                type: TIMESTAMP
+                constraints:
+                  nullable: false
+              - name: channel
+                type: VARCHAR(20)
+                constraints:
+                  nullable: false
+              - name: status
+                type: VARCHAR(20)
+                constraints:
+                  nullable: false
+              - name: error_message
+                type: VARCHAR(500)
+              - name: created_at
+                type: TIMESTAMP
+                defaultValueComputed: CURRENT_TIMESTAMP
+                constraints:
+                  nullable: false
+        - createIndex tableName: alert indexName: idx_alert_status:
+            column:
+              - name: status

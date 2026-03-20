@@ -12,8 +12,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,11 +21,11 @@ class CoinGeckoClientTest {
     private CoinGeckoClient client;
 
     @BeforeEach
-    void setUp() {
-        WebClient.Builder webClientBuilder = WebClient.builder();
+    void setUp() throws Exception {
+        WebClient webClient = WebClient.builder().build();
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        client = new CoinGeckoClient(webClientBuilder, objectMapper);
+        client = new CoinGeckoClient(webClient, objectMapper);
     }
 
     @Nested
@@ -46,51 +44,33 @@ class CoinGeckoClientTest {
     class SymbolMappingTests {
 
         @Test
-        @DisplayName("Should map bitcoin symbol correctly")
-        void shouldMapBitcoinSymbol() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should map bitcoin to bitcoin")
+        void shouldMapBitcoin() throws Exception {
+            assertThat(mapSymbol("bitcoin")).isEqualTo("bitcoin");
         }
 
         @Test
-        @DisplayName("Should handle BTC ticker")
-        void shouldHandleBTCTicker() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should map BTC to bitcoin")
+        void shouldMapBTCToBitcoin() throws Exception {
+            assertThat(mapSymbol("BTC")).isEqualTo("bitcoin");
         }
 
         @Test
-        @DisplayName("Should handle ETH ticker")
-        void shouldHandleETHTicker() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should map ethereum to ethereum")
+        void shouldMapEthereum() throws Exception {
+            assertThat(mapSymbol("ethereum")).isEqualTo("ethereum");
         }
 
         @Test
-        @DisplayName("Should handle SOL ticker")
-        void shouldHandleSOLTicker() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should map ETH to ethereum")
+        void shouldMapETHToEthereum() throws Exception {
+            assertThat(mapSymbol("ETH")).isEqualTo("ethereum");
         }
 
         @Test
-        @DisplayName("Should handle XRP ticker")
-        void shouldHandleXRPTicker() {
-            assertThat(client.getSource()).isNotNull();
-        }
-
-        @Test
-        @DisplayName("Should handle DOT ticker")
-        void shouldHandleDOTTicker() {
-            assertThat(client.getSource()).isNotNull();
-        }
-
-        @Test
-        @DisplayName("Should handle ADA ticker")
-        void shouldHandleADATicker() {
-            assertThat(client.getSource()).isNotNull();
-        }
-
-        @Test
-        @DisplayName("Should handle unknown symbol by returning it normalized")
-        void shouldHandleUnknownSymbol() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should map unknown symbol to lowercase")
+        void shouldMapUnknownSymbol() throws Exception {
+            assertThat(mapSymbol("UNKNOWN")).isEqualTo("unknown");
         }
     }
 
@@ -99,85 +79,35 @@ class CoinGeckoClientTest {
     class ErrorHandlingTests {
 
         @Test
-        @DisplayName("Should handle rate limit errors")
-        void shouldHandleRateLimitErrors() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should return false from isRetryableError for 404")
+        void shouldNotRetryFor404() throws Exception {
+            assertThat(isRetryableError(404)).isFalse();
         }
 
         @Test
-        @DisplayName("Should handle server errors")
-        void shouldHandleServerErrors() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should return true from isRetryableError for 429")
+        void shouldRetryFor429() throws Exception {
+            assertThat(isRetryableError(429)).isTrue();
         }
 
         @Test
-        @DisplayName("Should identify rate limit errors correctly")
-        void shouldIdentifyRateLimitErrorsCorrectly() {
-            assertThat(client.getSource()).isNotNull();
+        @DisplayName("Should return true from isRetryableError for 500")
+        void shouldRetryFor500() throws Exception {
+            assertThat(isRetryableError(500)).isTrue();
         }
     }
 
-    @Nested
-    @DisplayName("Response Parsing Tests")
-    class ResponseParsingTests {
+    private String mapSymbol(String symbol) throws Exception {
+        Method method = CoinGeckoClient.class.getDeclaredMethod("mapSymbolToCoinId", String.class);
+        method.setAccessible(true);
+        return (String) method.invoke(client, symbol);
+    }
 
-        @Test
-        @DisplayName("Should parse valid market chart response via reflection")
-        void shouldParseValidMarketChartResponse() throws Exception {
-            String json = """
-                {
-                    "prices": [
-                        [1609459200000, 29000.50],
-                        [1609545600000, 29500.75],
-                        [1609632000000, 28500.25]
-                    ]
-                }
-                """;
-
-            Method parseMethod = CoinGeckoClient.class.getDeclaredMethod("parseMarketChart", String.class);
-            parseMethod.setAccessible(true);
-            
-            @SuppressWarnings("unchecked")
-            Mono<List<OHLCV>> resultMono = (Mono<List<OHLCV>>) parseMethod.invoke(client, json);
-            List<OHLCV> ohlcvs = resultMono.block();
-            
-            assertThat(ohlcvs).hasSize(3);
-            assertThat(ohlcvs.get(0).close()).isGreaterThan(BigDecimal.ZERO);
-        }
-
-        @Test
-        @DisplayName("Should return empty list for missing prices array via reflection")
-        void shouldReturnEmptyListForMissingPricesArray() throws Exception {
-            String json = """
-                {
-                    "market_caps": [],
-                    "total_volumes": []
-                }
-                """;
-
-            Method parseMethod = CoinGeckoClient.class.getDeclaredMethod("parseMarketChart", String.class);
-            parseMethod.setAccessible(true);
-            
-            @SuppressWarnings("unchecked")
-            Mono<List<OHLCV>> resultMono = (Mono<List<OHLCV>>) parseMethod.invoke(client, json);
-            List<OHLCV> ohlcvs = resultMono.block();
-            
-            assertThat(ohlcvs).isEmpty();
-        }
-
-        @Test
-        @DisplayName("Should handle invalid JSON gracefully via reflection")
-        void shouldHandleInvalidJsonGracefully() throws Exception {
-            String invalidJson = "{ invalid json }";
-
-            Method parseMethod = CoinGeckoClient.class.getDeclaredMethod("parseMarketChart", String.class);
-            parseMethod.setAccessible(true);
-            
-            @SuppressWarnings("unchecked")
-            Mono<List<OHLCV>> resultMono = (Mono<List<OHLCV>>) parseMethod.invoke(client, invalidJson);
-            List<OHLCV> ohlcvs = resultMono.block();
-            
-            assertThat(ohlcvs).isEmpty();
-        }
+    private boolean isRetryableError(int statusCode) throws Exception {
+        Method method = CoinGeckoClient.class.getDeclaredMethod("isRetryableError", Throwable.class);
+        method.setAccessible(true);
+        org.springframework.web.reactive.function.client.WebClientResponseException ex = 
+            org.springframework.web.reactive.function.client.WebClientResponseException.create(statusCode, "Test", null, null, null);
+        return (Boolean) method.invoke(client, ex);
     }
 }

@@ -25,11 +25,9 @@ public class TelegramBotClient {
     @Value("${mecho.telegram.api-url:https://api.telegram.org}")
     private String configuredApiUrl;
 
-    public TelegramBotClient(WebClient.Builder webClientBuilder,
+    public TelegramBotClient(WebClient webClient,
                             @Value("${mecho.telegram.bot-token:}") String botToken) {
-        this.webClient = webClientBuilder
-                .baseUrl("https://api.telegram.org")
-                .build();
+        this.webClient = webClient;
         this.botToken = botToken;
         this.apiUrl = "https://api.telegram.org";
     }

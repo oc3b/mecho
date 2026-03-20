@@ -42,11 +42,9 @@ public class AlphaVantageClient implements MarketDataApi {
     @Value("${mecho.api.alpha-vantage.key:}")
     private String configuredApiKey;
 
-    public AlphaVantageClient(WebClient.Builder webClientBuilder, 
+    public AlphaVantageClient(WebClient webClient, 
                               ObjectMapper objectMapper) {
-        this.webClient = webClientBuilder
-                .baseUrl("https://www.alphavantage.co")
-                .build();
+        this.webClient = webClient;
         this.objectMapper = objectMapper;
         this.apiKey = "";
     }

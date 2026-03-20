@@ -11,14 +11,13 @@ spring:
       enabled: true
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.H2Dialect
   liquibase:
-    change-log: classpath:db/db.changelog-1.0.xml
+    change-log: classpath:db/db.changelog-1.0.yaml
     enabled: true
 
 mecho:

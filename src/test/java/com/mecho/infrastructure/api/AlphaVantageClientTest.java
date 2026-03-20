@@ -23,10 +23,10 @@ class AlphaVantageClientTest {
 
     @BeforeEach
     void setUp() {
-        WebClient.Builder webClientBuilder = WebClient.builder();
+        WebClient webClient = WebClient.builder().build();
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        client = new AlphaVantageClient(webClientBuilder, objectMapper);
+        client = new AlphaVantageClient(WebClient.builder().build(), objectMapper);
         ReflectionTestUtils.setField(client, "configuredApiKey", "test_api_key");
     }
 

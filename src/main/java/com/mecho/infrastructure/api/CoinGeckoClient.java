@@ -45,10 +45,8 @@ public class CoinGeckoClient implements MarketDataApi {
         Map.entry("ada", "cardano")
     );
 
-    public CoinGeckoClient(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
-        this.webClient = webClientBuilder
-                .baseUrl("https://api.coingecko.com/api/v3")
-                .build();
+    public CoinGeckoClient(WebClient webClient, ObjectMapper objectMapper) {
+        this.webClient = webClient;
         this.objectMapper = objectMapper;
     }
 
@@ -58,20 +56,21 @@ public class CoinGeckoClient implements MarketDataApi {
         long fromEpoch = from.getEpochSecond();
         long toEpoch = to.getEpochSecond();
         
+        String url = String.format("/coins/%s/market_chart/range?vs_currency=usd&from=%d&to=%d", 
+            coinId, fromEpoch, toEpoch);
+        
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/coins/{id}/market_chart/range")
-                        .queryParam("vs_currency", "usd")
-                        .queryParam("from", fromEpoch)
-                        .queryParam("to", toEpoch)
-                        .build(coinId))
-                .accept(MediaType.APPLICATION_JSON)
+                .uri(url)
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
-                        .filter(this::isRateLimitOrServerError))
-                .timeout(Duration.ofSeconds(60))
-                .flatMap(this::parseMarketChart)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
+                        .filter(this::isRetryableError))
+                .timeout(Duration.ofSeconds(30))
+                .map(response -> parseMarketChartData(response, from, to))
+                .onErrorResume(e -> {
+                    log.error("Failed to fetch historical data for {}: {}", symbol, e.getMessage());
+                    return Mono.just(new ArrayList<>());
+                })
                 .toFuture();
     }
 
@@ -80,40 +79,66 @@ public class CoinGeckoClient implements MarketDataApi {
         String coinId = mapSymbolToCoinId(symbol);
         
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/coins/{id}")
-                        .queryParam("localization", false)
-                        .queryParam("tickers", false)
-                        .queryParam("community_data", false)
-                        .queryParam("developer_data", false)
-                        .build(coinId))
-                .accept(MediaType.APPLICATION_JSON)
+                .uri("/coins/{id}", coinId)
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
-                        .filter(this::isRateLimitOrServerError))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
+                        .filter(this::isRetryableError))
                 .timeout(Duration.ofSeconds(30))
-                .flatMap(this::parseCoinDetail)
+                .map(response -> parseLatestPrice(response))
+                .onErrorResume(e -> {
+                    log.error("Failed to fetch latest data for {}: {}", symbol, e.getMessage());
+                    return Mono.just((OHLCV) null);
+                })
                 .toFuture();
     }
 
     @Override
     public CompletableFuture<List<OHLCV>> fetchDaily(String symbol, int days) {
         String coinId = mapSymbolToCoinId(symbol);
+        long toEpoch = Instant.now().getEpochSecond();
+        long fromEpoch = Instant.now().minusSeconds(days * 86400).getEpochSecond();
+        
+        String url = String.format("/coins/%s/market_chart/range?vs_currency=usd&from=%d&to=%d", 
+            coinId, fromEpoch, toEpoch);
         
         return webClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/coins/{id}/market_chart")
-                        .queryParam("vs_currency", "usd")
-                        .queryParam("days", days)
-                        .build(coinId))
-                .accept(MediaType.APPLICATION_JSON)
+                .uri(url)
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
-                        .filter(this::isRateLimitOrServerError))
-                .timeout(Duration.ofSeconds(60))
-                .flatMap(this::parseMarketChart)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
+                        .filter(this::isRetryableError))
+                .timeout(Duration.ofSeconds(30))
+                .map(response -> {
+                    List<OHLCV> result = new ArrayList<>();
+                    try {
+                        JsonNode root = objectMapper.readTree(response);
+                        JsonNode prices = root.path("prices");
+                        
+                        if (prices.isArray()) {
+                            prices.forEach(priceNode -> {
+                                long timestamp = priceNode.get(0).asLong();
+                                BigDecimal price = new BigDecimal(priceNode.get(1).asText());
+                                OHLCV ohlcv = new OHLCV(
+                                    price,
+                                    price,
+                                    price,
+                                    price,
+                                    BigDecimal.ZERO,
+                                    Instant.ofEpochMilli(timestamp)
+                                );
+                                result.add(ohlcv);
+                            });
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to parse CoinGecko response: {}", e.getMessage());
+                    }
+                    return result;
+                })
+                .onErrorResume(e -> {
+                    log.error("Failed to fetch historical data for {}: {}", symbol, e.getMessage());
+                    return Mono.just(new ArrayList<>());
+                })
                 .toFuture();
     }
 
@@ -123,80 +148,70 @@ public class CoinGeckoClient implements MarketDataApi {
     }
 
     private String mapSymbolToCoinId(String symbol) {
-        String normalized = symbol.toLowerCase().replace("-", "");
-        return SYMBOL_TO_ID.getOrDefault(normalized, normalized);
+        String lowerSymbol = symbol.toLowerCase();
+        return SYMBOL_TO_ID.getOrDefault(lowerSymbol, lowerSymbol);
     }
 
-    private Mono<List<OHLCV>> parseMarketChart(String json) {
-        return Mono.fromCallable(() -> {
-            List<OHLCV> result = new ArrayList<>();
-            try {
-                JsonNode root = objectMapper.readTree(json);
-                JsonNode prices = root.path("prices");
-                
-                if (prices.isMissingNode()) {
-                    log.warn("Unexpected CoinGecko response - no prices array: {}", json);
-                    return result;
-                }
-                
-                for (JsonNode priceData : prices) {
-                    try {
-                        long timestampMs = priceData.get(0).asLong();
-                        double priceValue = priceData.get(1).asDouble();
-                        BigDecimal price = BigDecimal.valueOf(priceValue).setScale(8, RoundingMode.HALF_UP);
-                        
-                        OHLCV ohlcv = new OHLCV(
-                                price,
-                                price,
-                                price,
-                                price,
-                                BigDecimal.ZERO,
-                                Instant.ofEpochMilli(timestampMs).atOffset(ZoneOffset.UTC).toInstant()
-                        );
-                        result.add(ohlcv);
-                    } catch (Exception e) {
-                        log.warn("Failed to parse price data: {}", e.getMessage());
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Failed to parse CoinGecko response: {}", e.getMessage());
-            }
-            return result;
-        });
-    }
-
-    private Mono<OHLCV> parseCoinDetail(String json) {
-        return Mono.fromCallable(() -> {
-            JsonNode root = objectMapper.readTree(json);
-            JsonNode marketData = root.path("market_data");
-            
-            if (marketData.isMissingNode()) {
-                log.warn("Unexpected CoinGecko response - no market_data: {}", json);
-                throw new RuntimeException("Invalid response from CoinGecko");
-            }
-            
-            JsonNode currentPrice = marketData.path("current_price");
-            Instant timestamp = Instant.now();
-            
-            BigDecimal price = currentPrice.path("usd").decimalValue();
-            BigDecimal volume = marketData.path("total_volume").path("usd").decimalValue();
-            
-            return new OHLCV(
-                    price,
-                    price,
-                    price,
-                    price,
-                    volume,
-                    timestamp
-            );
-        });
-    }
-
-    private boolean isRateLimitOrServerError(Throwable throwable) {
+    private boolean isRetryableError(Throwable throwable) {
         if (throwable instanceof WebClientResponseException wcre) {
             int status = wcre.getStatusCode().value();
             return status == 429 || status >= 500;
         }
         return false;
+    }
+
+    private List<OHLCV> parseMarketChartData(String json, Instant from, Instant to) {
+        List<OHLCV> result = new ArrayList<>();
+        
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode prices = root.path("prices");
+            
+            if (prices.isArray()) {
+                prices.forEach(priceNode -> {
+                    long timestamp = priceNode.get(0).asLong();
+                    if (timestamp >= from.toEpochMilli() && timestamp <= to.toEpochMilli()) {
+                        BigDecimal price = new BigDecimal(priceNode.get(1).asText());
+                        OHLCV ohlcv = new OHLCV(
+                            price,
+                            price,
+                            price,
+                            price,
+                            BigDecimal.ZERO,
+                            Instant.ofEpochMilli(timestamp)
+                        );
+                        result.add(ohlcv);
+                    }
+                });
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse CoinGecko response: {}", e.getMessage());
+        }
+        
+        return result;
+    }
+
+    private OHLCV parseLatestPrice(String json) {
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            JsonNode marketData = root.path("market_data");
+            JsonNode currentPrice = marketData.path("current_price").path("usd");
+            
+            if (currentPrice.isNumber()) {
+                BigDecimal price = new BigDecimal(currentPrice.asText());
+                return new OHLCV(
+                    price,
+                    price,
+                    price,
+                    price,
+                    BigDecimal.ZERO,
+                    Instant.now()
+                );
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse CoinGecko response: {}", e.getMessage());
+        }
+        
+        return null;
     }
 }
