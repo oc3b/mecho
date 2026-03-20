@@ -1,0 +1,46 @@
+.factorypath
+.classpath
+.project
+.settings/
+
+AGENTS.md
+IMPLEMENTATION_PLAN.md
+config/
+
+# --- Maven ---
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+pom.xml.bak
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+# Den Wrapper-Jar ignorieren, aber das Shell-Script behalten
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Compiled Java Files ---
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# --- Logs ---
+*.log
+
+# --- IntelliJ IDEA ---
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+# --- Visual Studio Code ---
+.vscode/
+
+# --- OS-spezifisch ---
+.DS_Store
+Thumbs.db

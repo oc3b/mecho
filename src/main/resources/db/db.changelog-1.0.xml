@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="2024-03-19-001" author="mecho">
+        <createTable tableName="symbol">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="ticker" type="VARCHAR(20)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name" type="VARCHAR(255)"/>
+            <column name="asset_class" type="VARCHAR(20)"/>
+            <column name="exchange" type="VARCHAR(50)"/>
+            <column name="enabled" type="BOOLEAN" defaultValueBoolean="true"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="2024-03-19-002" author="mecho">
+        <createTable tableName="market_data">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="symbol_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_market_data_symbol" references="symbol(id)"/>
+            </column>
+            <column name="timestamp" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="open_price" type="DECIMAL(18, 8)"/>
+            <column name="high_price" type="DECIMAL(18, 8)"/>
+            <column name="low_price" type="DECIMAL(18, 8)"/>
+            <column name="close_price" type="DECIMAL(18, 8)"/>
+            <column name="volume" type="DECIMAL(20, 8)"/>
+            <column name="data_source" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        
+        <createIndex tableName="market_data" indexName="idx_market_data_symbol_timestamp">
+            <column name="symbol_id"/>
+            <column name="timestamp"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="2024-03-19-003" author="mecho">
+        <createTable tableName="indicator_result">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="symbol_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_indicator_symbol" references="symbol(id)"/>
+            </column>
+            <column name="indicator_code" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="timestamp" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="value" type="DECIMAL(18, 8)"/>
+            <column name="signal" type="VARCHAR(20)"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="indicator_result" indexName="idx_indicator_symbol_time">
+            <column name="symbol_id"/>
+            <column name="indicator_code"/>
+            <column name="timestamp"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="2024-03-19-004" author="mecho">
+        <createTable tableName="prediction">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="symbol_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_prediction_symbol" references="symbol(id)"/>
+            </column>
+            <column name="timestamp" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="predicted_direction" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="probability" type="DECIMAL(5, 4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="confidence" type="DECIMAL(5, 4)"/>
+            <column name="model_version" type="VARCHAR(50)"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="prediction" indexName="idx_prediction_symbol_time">
+            <column name="symbol_id"/>
+            <column name="timestamp"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="2024-03-19-005" author="mecho">
+        <createTable tableName="alert">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="prediction_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_alert_prediction" references="prediction(id)"/>
+            </column>
+            <column name="sent_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="channel" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="error_message" type="VARCHAR(500)"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="alert" indexName="idx_alert_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

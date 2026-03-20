@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: mecho
+  datasource:
+    url: jdbc:h2:mem:mecho;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  h2:
+    console:
+      enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  liquibase:
+    change-log: classpath:db/db.changelog-1.0.xml
+    enabled: true
+
+mecho:
+  scheduler:
+    enabled: true
+    cron: "0 */15 * * * *"
+  telegram:
+    enabled: true
+    api-url: https://api.telegram.org
+    bot-token: "${TELEGRAM_BOT_TOKEN:}"
+    channel-id: "${TELEGRAM_CHANNEL_ID:}"
+  market-data:
+    enabled: true
+    fetch-interval-minutes: 15
+    history-days: 100
+    default-provider: ALPHA_VANTAGE
+  indicators:
+    config-path: classpath:config/indicators.yaml
+  config:
+    path: file:./config
+  symbols:
+    config: classpath:config/symbols.yml
+  alerts:
+    config: classpath:config/alerts.yml
+  providers:
+    config: classpath:config/providers.yml
+  api:
+    alpha-vantage:
+      base-url: https://www.alphavantage.co/query
+      key: "${ALPHA_VANTAGE_API_KEY:}"
+
+logging:
+  level:
+    com.mecho: INFO
+    org.springframework: INFO

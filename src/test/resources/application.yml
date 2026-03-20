@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: mecho-test
+
+mecho:
+  api:
+    alpha-vantage:
+      base-url: https://www.alphavantage.co
+      key: test_key
+  market-data:
+    fetch-interval-minutes: 15
+    history-days: 100
+    default-provider: ALPHA_VANTAGE
+    enabled: true
+  telegram:
+    enabled: false
+    bot-token: test_token
+    channel-id: "-100123456789"
+  config:
+    path: file:./config
+
+logging:
+  level:
+    root: WARN
+    com.mecho: INFO
