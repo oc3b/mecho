@@ -80,7 +80,7 @@ public class FetchMarketDataService {
                     historicalData.size(), ticker, savedCount);
             
         } catch (Exception e) {
-            log.error("Error fetching historical data for {}: {}", ticker, e.getMessage());
+            log.error("Error fetching historical data for {}: {} - Full stack trace:", ticker, e.getMessage(), e);
         }
     }
     
@@ -98,29 +98,20 @@ public class FetchMarketDataService {
     
     private MarketDataApi selectApiForSymbol(SymbolEntity symbol) {
         String provider = determineProvider(symbol);
-        return marketDataApis.get(provider);
+        MarketDataApi api = marketDataApis.get(provider);
+        log.debug("Selected API '{}' for symbol '{}' (available APIs: {})", 
+                provider, symbol.getTicker(), marketDataApis.keySet());
+        return api;
     }
     
     private String determineProvider(SymbolEntity symbol) {
         String ticker = symbol.getTicker().toLowerCase();
-        
-        if (ticker.equals("bitcoin") || ticker.equals("ethereum") || ticker.equals("solana") || 
-            ticker.equals("ripple") || ticker.equals("polkadot") || ticker.equals("cardano") ||
-            ticker.equals("btc") || ticker.equals("eth") || ticker.equals("sol")) {
+
+        if (configLoader.isCryptoSymbol(ticker)) {
+            log.debug("Symbol '{}' detected as crypto, routing to COIN_GECKO", ticker);
             return "COIN_GECKO";
         }
-        
-        if (symbol.getExchange() != null) {
-            String exchange = symbol.getExchange().toLowerCase();
-            if (exchange.contains(".de") || exchange.contains(".as") || exchange.contains(".sw") || exchange.contains(".co")) {
-                return "COIN_GECKO";
-            }
-        }
-        
-        if (ticker.contains(".de") || ticker.contains(".as") || ticker.contains(".sw") || ticker.contains(".co")) {
-            return "COIN_GECKO";
-        }
-        
+
         return marketDataConfig.getDefaultProvider();
     }
     

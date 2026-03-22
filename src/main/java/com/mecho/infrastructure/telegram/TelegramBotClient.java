@@ -2,6 +2,7 @@ package com.mecho.infrastructure.telegram;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -25,7 +26,7 @@ public class TelegramBotClient {
     @Value("${mecho.telegram.api-url:https://api.telegram.org}")
     private String configuredApiUrl;
 
-    public TelegramBotClient(WebClient webClient,
+    public TelegramBotClient(@Qualifier("telegramWebClient") WebClient webClient,
                             @Value("${mecho.telegram.bot-token:}") String botToken) {
         this.webClient = webClient;
         this.botToken = botToken;

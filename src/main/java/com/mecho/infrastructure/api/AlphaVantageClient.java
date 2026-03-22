@@ -30,21 +30,18 @@ public class AlphaVantageClient implements MarketDataApi {
     private static final Logger log = LoggerFactory.getLogger(AlphaVantageClient.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     
-    private final WebClient webClient;
+    private final WebClient alphaVantageWebClient;
     private final ObjectMapper objectMapper;
     private final String apiKey;
     
     private static final Duration RATE_LIMIT_DELAY = Duration.ofMillis(1200);
     
-    @Value("${mecho.api.alpha-vantage.base-url:https://www.alphavantage.co}")
-    private String baseUrl;
-
     @Value("${mecho.api.alpha-vantage.key:}")
     private String configuredApiKey;
 
-    public AlphaVantageClient(WebClient webClient, 
+    public AlphaVantageClient(WebClient alphaVantageWebClient, 
                               ObjectMapper objectMapper) {
-        this.webClient = webClient;
+        this.alphaVantageWebClient = alphaVantageWebClient;
         this.objectMapper = objectMapper;
         this.apiKey = "";
     }
@@ -64,7 +61,7 @@ public class AlphaVantageClient implements MarketDataApi {
     public CompletableFuture<OHLCV> fetchLatest(String symbol) {
         String key = configuredApiKey != null && !configuredApiKey.isBlank() ? configuredApiKey : apiKey;
         
-        return webClient.get()
+        return alphaVantageWebClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/query")
                         .queryParam("function", "GLOBAL_QUOTE")
@@ -76,16 +73,20 @@ public class AlphaVantageClient implements MarketDataApi {
                 .bodyToMono(String.class)
                 .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
                         .filter(this::isRateLimitOrServerError))
-                .timeout(Duration.ofSeconds(30))
+                .timeout(java.time.Duration.ofSeconds(30))
                 .flatMap(this::parseGlobalQuote)
-                .toFuture();
+                .toFuture()
+                .exceptionally(ex -> {
+                    log.error("AlphaVantage fetchLatest failed for {}: {}", symbol, ex.getMessage(), ex);
+                    throw new RuntimeException(ex);
+                });
     }
 
     @Override
     public CompletableFuture<List<OHLCV>> fetchDaily(String symbol, int days) {
         String key = configuredApiKey != null && !configuredApiKey.isBlank() ? configuredApiKey : apiKey;
         
-        return webClient.get()
+        return alphaVantageWebClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/query")
                         .queryParam("function", "TIME_SERIES_DAILY")
@@ -99,7 +100,7 @@ public class AlphaVantageClient implements MarketDataApi {
                 .delayElement(RATE_LIMIT_DELAY)
                 .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
                         .filter(this::isRateLimitOrServerError))
-                .timeout(Duration.ofSeconds(60))
+                .timeout(java.time.Duration.ofSeconds(60))
                 .flatMap(this::parseTimeSeriesDaily)
                 .map(list -> {
                     if (list.size() > days) {
@@ -108,7 +109,11 @@ public class AlphaVantageClient implements MarketDataApi {
                     return list;
                 })
                 .map(Collections::unmodifiableList)
-                .toFuture();
+                .toFuture()
+                .exceptionally(ex -> {
+                    log.error("AlphaVantage fetchDaily failed for {}: {}", symbol, ex.getMessage(), ex);
+                    throw new RuntimeException(ex);
+                });
     }
 
     @Override

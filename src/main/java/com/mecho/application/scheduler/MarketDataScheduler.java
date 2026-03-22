@@ -41,6 +41,11 @@ public class MarketDataScheduler {
         log.info("Starting market analysis pipeline");
         long startTime = System.currentTimeMillis();
         
+        int successCount = 0;
+        int failedCount = 0;
+        int stockCount = 0;
+        int cryptoCount = 0;
+        
         try {
             List<String> symbols = configLoader.getSymbols();
             
@@ -50,18 +55,29 @@ public class MarketDataScheduler {
             }
             
             for (String ticker : symbols) {
-                processSymbol(ticker);
+                boolean success = processSymbol(ticker);
+                if (success) {
+                    successCount++;
+                    if (configLoader.isCryptoSymbol(ticker.toLowerCase())) {
+                        cryptoCount++;
+                    } else {
+                        stockCount++;
+                    }
+                } else {
+                    failedCount++;
+                }
             }
             
             long duration = System.currentTimeMillis() - startTime;
-            log.info("Market analysis pipeline completed in {} ms", duration);
+            log.info("Fetched {} of {} symbols ({} stocks, {} crypto) - completed in {} ms", 
+                    successCount, symbols.size(), stockCount, cryptoCount, duration);
             
         } catch (Exception e) {
             log.error("Error in market analysis pipeline: {}", e.getMessage(), e);
         }
     }
     
-    public void processSymbol(String ticker) {
+    public boolean processSymbol(String ticker) {
         try {
             log.debug("Processing symbol: {}", ticker);
             
@@ -84,8 +100,11 @@ public class MarketDataScheduler {
                 }
             }
             
+            return true;
+            
         } catch (Exception e) {
             log.error("Error processing symbol {}: {}", ticker, e.getMessage());
+            return false;
         }
     }
     

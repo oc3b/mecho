@@ -48,8 +48,13 @@ mecho:
     alpha-vantage:
       base-url: https://www.alphavantage.co/query
       key: "${ALPHA_VANTAGE_API_KEY:}"
+    coin-gecko:
+      base-url: https://api.coingecko.com/api/v3
 
 logging:
   level:
-    com.mecho: INFO
+    com.mecho: DEBUG
     org.springframework: INFO
+    reactor: DEBUG
+    io.netty: DEBUG
+  exception: true
