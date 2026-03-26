@@ -15,4 +15,6 @@ public interface SymbolRepository extends JpaRepository<SymbolEntity, Long> {
     List<SymbolEntity> findByEnabled(Boolean enabled);
     
     boolean existsByTicker(String ticker);
+    
+    List<SymbolEntity> findAllByOrderByTicker();
 }

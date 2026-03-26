@@ -29,4 +29,11 @@ public interface IndicatorResultRepository extends JpaRepository<IndicatorResult
             Instant startTime,
             Instant endTime
     );
+    
+    Optional<IndicatorResultEntity> findTopBySymbolIdAndIndicatorCodeOrderByIdDesc(
+            Long symbolId,
+            String indicatorCode
+    );
+    
+    List<IndicatorResultEntity> findBySymbolOrderByTimestampDesc(SymbolEntity symbol, Pageable pageable);
 }

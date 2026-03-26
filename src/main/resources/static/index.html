@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mecho Dashboard</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue.js 3 -->
+  <script src="https://unpkg.com/vue@3.4.0/dist/vue.global.js"></script>
+  <!-- ApexCharts -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"></script>
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="bg-gray-900 text-gray-100">
+  <div id="app">
+    <!-- Backend Status Banner -->
+    <div v-if="!backendConnected" class="alert-banner error no-print">
+      <span class="text-xl">&#9888;</span>
+      <span>Backend not running. Please start the server.</span>
+      <button @click="checkBackend" class="ml-auto px-3 py-1 bg-red-600 hover:bg-red-700 rounded transition-colors">Retry</button>
+    </div>
+
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700">
+      <div class="container mx-auto px-4 py-4">
+        <div class="flex items-center justify-between">
+          <h1 class="text-2xl font-bold text-blue-400">Mecho Dashboard</h1>
+          <nav class="flex space-x-4">
+            <button 
+              @click="currentPage = 'dashboard'"
+              :class="currentPage === 'dashboard' ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'"
+              class="px-3 py-2 rounded transition-colors">
+              Dashboard
+            </button>
+            <button 
+              @click="currentPage = 'symbols'"
+              :class="currentPage === 'symbols' ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'"
+              class="px-3 py-2 rounded transition-colors">
+              Symbols
+            </button>
+            <button 
+              @click="currentPage = 'predictions'"
+              :class="currentPage === 'predictions' ? 'text-blue-400' : 'text-gray-400 hover:text-gray-200'"
+              class="px-3 py-2 rounded transition-colors">
+              Predictions
+            </button>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+      <!-- Dashboard Page -->
+      <div v-if="currentPage === 'dashboard'">
+        <div class="flex justify-end mb-4">
+          <span class="text-sm text-gray-400">Last updated: {{ formatLastUpdated(lastUpdated.status) }}</span>
+          <button @click="refresh('status')" class="ml-4 px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded transition-colors text-sm">&#8635; Refresh</button>
+        </div>
+        <StatusCard :status="status" />
+      </div>
+
+      <!-- Symbols Page -->
+      <div v-if="currentPage === 'symbols'">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <span class="text-sm text-gray-400">Last updated: {{ formatLastUpdated(lastUpdated.symbols) }}</span>
+          </div>
+          <button @click="refresh('symbols')" :disabled="refreshing.symbols" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors text-sm flex items-center gap-2">
+            <span v-if="refreshing.symbols" class="spinner"></span>
+            <span>Refresh</span>
+          </button>
+        </div>
+        
+        <SymbolGrid 
+          :symbols="symbols" 
+          :loading="loading.symbols" 
+          :error="errors.symbols"
+          @symbol-click="openSymbolDetail"
+          @retry="refresh('symbols')">
+        </SymbolGrid>
+      </div>
+
+      <!-- Predictions Page -->
+      <div v-if="currentPage === 'predictions'">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <span class="text-sm text-gray-400">Last updated: {{ formatLastUpdated(lastUpdated.predictions) }}</span>
+          </div>
+          <button @click="refresh('predictions')" :disabled="refreshing.predictions" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 rounded transition-colors text-sm flex items-center gap-2">
+            <span v-if="refreshing.predictions" class="spinner"></span>
+            <span>Refresh</span>
+          </button>
+        </div>
+        
+        <PredictionsView
+          :predictions="predictions"
+          :loading="loading.predictions"
+          :error="errors.predictions"
+          @refresh="refresh('predictions')"
+          @retry="refresh('predictions')">
+        </PredictionsView>
+      </div>
+    </main>
+
+    <!-- Symbol Detail Modal -->
+    <SymbolDetail
+      v-if="selectedSymbol"
+      :symbol="selectedSymbol"
+      :visible="true"
+      @close="selectedSymbol = null"
+      @view-chart="openChartView"
+      @view-indicators="openIndicatorsView">
+    </SymbolDetail>
+
+    <!-- Chart View Modal -->
+    <ChartView
+      v-if="chartSymbol"
+      :symbol="chartSymbol"
+      :visible="true"
+      @close="chartSymbol = null">
+    </ChartView>
+
+    <!-- Indicators Panel Modal -->
+    <IndicatorsPanel
+      v-if="indicatorsSymbol"
+      :symbol="indicatorsSymbol"
+      :visible="true"
+      @close="indicatorsSymbol = null">
+    </IndicatorsPanel>
+  </div>
+
+  <!-- Main Scripts -->
+  <script src="/js/api.js"></script>
+  <script src="/js/components.js"></script>
+  <!-- Component Files -->
+  <script src="/js/components/SymbolGrid.js"></script>
+  <script src="/js/components/SymbolDetail.js"></script>
+  <script src="/js/components/ChartView.js"></script>
+  <script src="/js/components/IndicatorsPanel.js"></script>
+  <script src="/js/components/PredictionsView.js"></script>
+  <!-- Utils -->
+  <script src="/js/utils/autoRefresh.js"></script>
+  <!-- App -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

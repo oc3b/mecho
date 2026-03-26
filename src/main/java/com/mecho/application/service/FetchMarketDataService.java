@@ -112,7 +112,9 @@ public class FetchMarketDataService {
             return "COIN_GECKO";
         }
 
-        return marketDataConfig.getDefaultProvider();
+        // Stocks: Always use YFinance as primary provider (no rate limits)
+        log.debug("Symbol '{}' detected as stock, routing to YFINANCE", ticker);
+        return "YFINANCE";
     }
     
     private MarketDataEntity toEntity(SymbolEntity symbol, OHLCV ohlcv, String source) {

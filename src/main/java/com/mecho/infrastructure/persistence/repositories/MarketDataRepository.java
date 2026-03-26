@@ -26,4 +26,8 @@ public interface MarketDataRepository extends JpaRepository<MarketDataEntity, Lo
     MarketDataEntity findLatestBySymbol(@Param("symbol") SymbolEntity symbol);
     
     boolean existsBySymbolAndTimestamp(SymbolEntity symbol, Instant timestamp);
+    
+    List<MarketDataEntity> findTop100BySymbolOrderByTimestampDesc(SymbolEntity symbol);
+    
+    long countBySymbol(SymbolEntity symbol);
 }

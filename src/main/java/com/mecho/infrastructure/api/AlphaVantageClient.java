@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,7 +52,8 @@ public class AlphaVantageClient implements MarketDataApi {
         LocalDate fromDate = from.atZone(ZoneOffset.UTC).toLocalDate();
         LocalDate toDate = to.atZone(ZoneOffset.UTC).toLocalDate();
         
-        return fetchDaily(symbol, (int) Duration.between(fromDate, toDate).toDays() + 1)
+        // Use ChronoUnit.DAYS instead of Duration.between (LocalDate doesn't support Seconds unit)
+        return fetchDaily(symbol, (int) ChronoUnit.DAYS.between(fromDate, toDate) + 1)
                 .thenApply(ohlcvs -> ohlcvs.stream()
                         .filter(ohlcv -> !ohlcv.timestamp().isBefore(from) && !ohlcv.timestamp().isAfter(to))
                         .toList());
